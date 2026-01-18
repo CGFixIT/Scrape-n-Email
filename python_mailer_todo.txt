@@ -1,0 +1,19 @@
+TODO: Rewrite Scrape-n-Email email logic in Python.
+Current Status: Uses deprecated sendEmail.exe (v1.56, 2009) which relies on system DLL hijacking for TLS 1.2.
+Goal: Replace sendEmail.exe and email.bat with a pure Python function using smtplib.
+
+Task List:
+1. Delete sendEmail.exe from repo.
+2. Delete email.bat.
+3. Add mailer.py (or integrate into main.py).
+4. Use smtplib.SMTP("smtp.gmail.com", 587) with starttls().
+5. Use os.environ for credentials (no hardcoded passwords).
+6. Update README to reflect new dependency-free setup.
+
+Reference Code:
+import smtplib, ssl, os
+context = ssl.create_default_context()
+with smtplib.SMTP("smtp.gmail.com", 587) as server:
+    server.starttls(context=context)
+    server.login(os.environ.get("EMAIL_USER"), os.environ.get("EMAIL_PASS"))
+    server.send_message(msg)
