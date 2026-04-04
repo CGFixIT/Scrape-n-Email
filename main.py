@@ -1,4 +1,7 @@
-import mailer  
+from bs4 import BeautifulSoup
+import requests, io, os
+import drudgeScraper, rcpScraper, clistScraper
+import mailer
 
 def main():
     rcpScraper.scrape()
