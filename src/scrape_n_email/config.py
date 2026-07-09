@@ -28,11 +28,12 @@ class Config:
 
     @classmethod
     def from_env(cls) -> Config:
+        email_user = _env("EMAIL_USER")
         recipient = _env("EMAIL_RECIPIENT")
         return cls(
-            email_user=_env("EMAIL_USER"),
+            email_user=email_user,
             email_pass=_env("EMAIL_PASS"),
-            email_recipient=recipient if recipient else _env("EMAIL_USER"),
+            email_recipient=recipient if recipient else email_user,
             smtp_host=_env("SMTP_HOST", "smtp.gmail.com"),
             smtp_port=int(_env("SMTP_PORT", "587")),
             max_rcp_items=int(_env("MAX_RCP_ITEMS", "25")),

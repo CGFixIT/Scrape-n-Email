@@ -12,7 +12,7 @@ from scrape_n_email import mailer
 
 
 def _clear_env() -> None:
-    for key in ("EMAIL_USER", "EMAIL_PASS", "EMAIL_RECIPIENT"):
+    for key in ("EMAIL_USER", "EMAIL_PASS", "EMAIL_RECIPIENT", "SMTP_HOST", "SMTP_PORT"):
         os.environ.pop(key, None)
 
 
@@ -47,6 +47,22 @@ def test_successful_send(mock_smtp_cls: MagicMock) -> None:
     assert mailer.send_email("Subject", "Body", []) is True
     mock_server.login.assert_called_once_with("user@example.com", "apppassword")
     mock_server.send_message.assert_called_once()
+    _clear_env()
+
+
+@patch("smtplib.SMTP")
+def test_custom_smtp_host_and_port_used(mock_smtp_cls: MagicMock) -> None:
+    _clear_env()
+    os.environ["EMAIL_USER"] = "user@example.com"
+    os.environ["EMAIL_PASS"] = "apppassword"
+    os.environ["SMTP_HOST"] = "smtp.example.test"
+    os.environ["SMTP_PORT"] = "2525"
+    mock_server = MagicMock()
+    mock_smtp_cls.return_value.__enter__ = MagicMock(return_value=mock_server)
+    mock_smtp_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+    assert mailer.send_email("Subject", "Body", []) is True
+    mock_smtp_cls.assert_called_once_with("smtp.example.test", 2525, timeout=30)
     _clear_env()
 
 
