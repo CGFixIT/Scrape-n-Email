@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import smtplib
 import ssl
 import time
@@ -11,6 +10,8 @@ from collections.abc import Sequence
 from datetime import date
 from email.message import EmailMessage
 from pathlib import Path
+
+from scrape_n_email.config import Config
 
 logger = logging.getLogger("scrape_n_email.mailer")
 
@@ -50,18 +51,17 @@ def _attach_file(msg: EmailMessage, filepath: Path | str) -> bool:
 
 def send_email(subject: str, body: str, attachments: Sequence[Path | str]) -> bool:
     """Send a single email with retry logic for transient failures."""
-    sender = os.environ.get("EMAIL_USER")
-    password = os.environ.get("EMAIL_PASS")
-    recipient = os.environ.get("EMAIL_RECIPIENT", sender)
-
-    if not sender or not password:
-        logger.error("EMAIL_USER and EMAIL_PASS environment variables must be set")
+    try:
+        config = Config.from_env()
+        config.validate()
+    except ValueError as e:
+        logger.error("Configuration error: %s", e)
         return False
 
     msg = EmailMessage()
     msg["Subject"] = subject
-    msg["From"] = sender
-    msg["To"] = recipient
+    msg["From"] = config.email_user
+    msg["To"] = config.email_recipient
     msg.set_content(body)
 
     for filepath in attachments:
@@ -71,9 +71,9 @@ def send_email(subject: str, body: str, attachments: Sequence[Path | str]) -> bo
 
     for attempt in range(1, _MAX_RETRIES + 1):
         try:
-            with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
+            with smtplib.SMTP(config.smtp_host, config.smtp_port, timeout=30) as server:
                 server.starttls(context=context)
-                server.login(sender, password)
+                server.login(config.email_user, config.email_pass)
                 server.send_message(msg)
             logger.info("Sent: %s (attempt %d/%d)", subject, attempt, _MAX_RETRIES)
             return True

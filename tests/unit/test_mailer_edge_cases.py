@@ -11,7 +11,7 @@ from scrape_n_email import mailer
 
 
 def _clear_env() -> None:
-    for key in ("EMAIL_USER", "EMAIL_PASS", "EMAIL_RECIPIENT"):
+    for key in ("EMAIL_USER", "EMAIL_PASS", "EMAIL_RECIPIENT", "SMTP_HOST", "SMTP_PORT"):
         os.environ.pop(key, None)
 
 
