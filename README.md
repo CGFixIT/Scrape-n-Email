@@ -1,117 +1,183 @@
-# Scrape-n-Email (Modernized Edition)
+# Scrape-n-Email
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/CGFixIT/Scrape-n-Email/actions/workflows/ci.yml/badge.svg)](https://github.com/CGFixIT/Scrape-n-Email/actions/workflows/ci.yml)
 
-A small, dependency-light news + jobs scraper that emails its results as attachments.
-This is the **fixed and cleaned-up version** of the original repo with the following improvements:
+Small Python automation that scrapes RealClearPolitics headlines and Atlanta Craigslist sysadmin/networking jobs, writes digest files, and emails them through Gmail SMTP.
 
-### Key Fixes Applied (June 2026)
-- **Circular import eliminated**: CSV writing logic (`csvinit`, `writer`, `_csv_safe`) extracted to new `csv_helper.py`. `drudgeScraper.py` and `rcpScraper.py` now both import from it cleanly.
-- **RCPlinks.csv header management**: `rcpScraper.scrape()` now auto-initializes the CSV with a proper header row on first run (or when file is missing/empty). No more missing headers or manual `csvinit()` calls in normal flow.
-- **Windows-specific popup removed**: The fragile `os.system('msg * ...')` line is gone from `main.py`. Replaced with proper `logging` (cross-platform, cron-friendly, redirectable).
-- **Code quality / hygiene**:
-  - Added `encoding="utf-8"` to all file opens.
-  - Cleaner imports, removed unused `io`/`sys`/`bs4`/`requests` from `main.py`.
-  - `csv_helper.py` has docstrings and is self-contained.
-  - `.gitignore` added for sane Python project defaults (ignores generated .txt/.csv by default).
-- **Tests still pass**: `test_scrapers.py` exercises all `parse_*` functions offline. No behavior change to parsing logic.
+The repo now uses a `src/` package layout, offline tests, linting, type checking, and a small CI matrix. It is still intentionally small and dependency-light.
 
-### What it does (unchanged core behavior)
+## What It Does
 
-Three scraper modules feed one orchestrator and one mailer:
+Default daily flow:
 
-```
-main.py
-  ├── rcpScraper.scrape()           → RCPheadlines.txt + appends to RCPlinks.csv (via csv_helper)
-  ├── clistScraper.scrape()         → jobs.txt
-  └── mailer.send_all()
-        ├── Email 1: "Daily News: <date>" → RCPheadlines.txt + RCPlinks.csv
-        └── Email 2: "Daily Jobs: <date>" → jobs.txt
-```
+1. Scrape RealClearPolitics headlines.
+2. Scrape Atlanta Craigslist job listings.
+3. Write digest artifacts.
+4. Email the digests as attachments.
 
-- `rcpScraper` pulls top headlines from RealClearPolitics and writes a flat `.txt` digest plus a parallel `.csv`.
-- `clistScraper` pulls Atlanta Craigslist sysadmin job listings into a `.txt` digest.
-- `drudgeScraper` still contains a fully functional Drudge Report scraper (standalone or future use) but is **not called from main.py** (legacy pivot to RCP focus). Its CSV helpers were moved out.
-- `mailer` sends two separate emails via Gmail SMTP — one for news, one for jobs — with the corresponding files attached. Date-stamped subject lines. Pure stdlib, App Password only.
+Generated runtime files:
 
-> **About the `drudgeScraper` module name:** kept for historical reasons and because the Drudge parsing logic is still useful/standalone. The CSV code that used to live here is now centralized in `csv_helper.py`.
+- `RCPheadlines.txt`
+- `jobs.txt`
+- `RCPlinks.csv`
 
-### How you can use this:
+There is also a standalone Drudge parser in `src/scrape_n_email/scrapers/drudge.py`, but it is not part of the default daily pipeline.
 
-This is a lightweight personal automation that runs on a Windows (or Linux with minor tweaks) machine ad hoc or via cron/task scheduler.
+## Current Layout
 
-- It (hypothetically) triggers automatically at 7:00 AM via Windows Task Scheduler.
-- You get two separate emails:
-  - **Daily News** — Top RealClearPolitics headlines + a growing `RCPlinks.csv` archive of links.
-  - **Daily Jobs** — Atlanta Craigslist sysadmin / ops / infrastructure listings.
-- The news digest gives a quick, curated view of political and current events from a site whose aggregation style I like.
-- Over time the CSV becomes a simple personal searchable archive of interesting links.
-- When sites change layout code needs updates to the scraper; the offline tests in `test_scrapers.py` usually surface regressions quickly.
+- `src/scrape_n_email/cli.py` - main CLI entrypoint and orchestration.
+- `src/scrape_n_email/config.py` - env-driven config dataclass and validation.
+- `src/scrape_n_email/csv.py` - CSV initialization, append helpers, and spreadsheet-formula escaping.
+- `src/scrape_n_email/mailer.py` - Gmail SMTP sending and logging.
+- `src/scrape_n_email/scrapers/base.py` - shared HTTP session, headers, and retry loop.
+- `src/scrape_n_email/scrapers/rcp.py` - RealClearPolitics scrape + parse flow.
+- `src/scrape_n_email/scrapers/clist.py` - Craigslist scrape + parse flow.
+- `src/scrape_n_email/scrapers/drudge.py` - standalone Drudge scrape + parse flow.
+- `tests/unit/` - parser, config, CSV, mailer, CLI, and retry-path coverage.
+- `tests/integration/` - offline pipeline coverage.
+- `main.py` - compatibility shim for older scheduled invocations.
+- `pyproject.toml` - packaging, dependencies, ruff, mypy, and pytest config.
+- `Dockerfile` - single-run container image.
+- `AGENTS.md`, `.codex/`, `.claude/`, `commands/` - repo-local AI agent guidance and command wiring.
 
-### Setup (same as before, plus new file)
+## Requirements
 
-**Requirements:** Python 3.10+, `requests`, `beautifulsoup4`.
+- Python 3.10+
+- Runtime dependencies are declared in `pyproject.toml` and mirrored in `requirements.txt`
+
+## Setup
+
+Runtime install:
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-**Tests:**
+Contributor/dev install:
 
 ```bash
-python -m unittest test_scrapers -v
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
 ```
 
-**Credentials** via environment variables (never in repo):
+PowerShell:
 
-| Variable         | Purpose                                                                 |
-|------------------|-------------------------------------------------------------------------|
-| `EMAIL_USER`     | Gmail address to send from                                              |
-| `EMAIL_PASS`     | Gmail App Password (16-char token)                                      |
-| `EMAIL_RECIPIENT`| (Optional) destination; defaults to `EMAIL_USER`                        |
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
+```
 
-**Running it:**
+## Environment Variables
+
+Required for live email sends:
+
+- `EMAIL_USER` - Gmail address used to send mail
+- `EMAIL_PASS` - Gmail app password
+
+Optional:
+
+- `EMAIL_RECIPIENT` - defaults to `EMAIL_USER`
+- `SMTP_HOST` - defaults to `smtp.gmail.com`
+- `SMTP_PORT` - defaults to `587`
+- `MAX_RCP_ITEMS`
+- `MAX_CLIST_ITEMS`
+- `MAX_DRUDGE_ITEMS`
+- `RCP_URL`
+- `CLIST_URL`
+- `DRUDGE_URL`
+
+Never commit real credentials or `.env` files.
+
+## Running It
+
+Preferred:
 
 ```bash
-# one-off (set env vars first!)
-python -m scrape_n_email          # preferred (package entry point)
-python main.py                    # legacy shim — still works for existing scripts
-
-# scheduled (Windows example)
-schtasks /Create /SC DAILY /TN "ScrapeNEmail" /TR "C:\\path\\to\\python.exe -m scrape_n_email" /ST 07:00
+python -m scrape_n_email
 ```
 
-### File Overview (Fixed Version)
+Scrape only, skip SMTP:
 
-| File                | Purpose                                                                 | Changed? |
-|---------------------|-------------------------------------------------------------------------|----------|
-| `csv_helper.py`     | New. CSV header init + safe append writer. No circular deps.            | **NEW**  |
-| `clistScraper.py`   | Atlanta Craigslist sysadmin jobs (`/search/sad`)                        | Minor (encoding) |
-| `drudgeScraper.py`  | Drudge Report parser + legacy standalone runner (now uses csv_helper)   | Yes (imports + calls) |
-| `rcpScraper.py`     | RealClearPolitics headlines + auto CSV header + uses csv_helper         | Yes (init logic + import) |
-| `main.py`           | Orchestrator (rcp + clist → mailer). Clean logging, no Windows popup.   | Yes      |
-| `mailer.py`         | Gmail SMTP + attachments (pure stdlib)                                  | No       |
-| `test_scrapers.py`  | Offline unit tests for all parse_* functions                            | No (still passes) |
-| `requirements.txt`  | requests + beautifulsoup4                                               | Minor    |
-| `.gitignore`        | Python + generated file hygiene                                         | **NEW**  |
-| `README.md`         | This file                                                               | Updated  |
+```bash
+python -m scrape_n_email --skip-email
+```
 
-### Remaining Caveats (honest)
+Legacy compatibility path:
 
-- Live scraping still depends on the sites not changing their HTML too aggressively and your egress IP not being blocked. The robust headers + retries + fallbacks help a lot.
-- `RCPlinks.csv` now grows over time (append-only design). If you want daily rotation or size limits, add a small cleanup step in `main.py` or `rcpScraper.scrape()`.
-- Drudge scraping is present but dormant in the daily `main.py` flow. If you want headlines from Drudge in the email too, add `import drudgeScraper; drudgeScraper.scrape()` in `main()` and update the mailer to attach `DRUDGEheadlines.txt`.
+```bash
+python main.py
+```
 
-### Why these fixes matter
+Windows scheduled task example:
 
-The original had classic small-project tech debt:
-- Circular imports (fragile on reload / certain Python versions)
-- First-run CSV without header (silent data quality issue)
-- Non-portable "success popup" that only worked on one dev's Windows box
+```cmd
+schtasks /Create /SC DAILY /TN "ScrapeNEmail" /TR "C:\path\to\python.exe -m scrape_n_email" /ST 07:00
+```
 
----
+## Validation
 
-*Christopher Grady · @cgfixit · cgfixit.com · June 2026 (fixed edition)*
+CI is the source of truth. Local validation commands:
 
-Original repo: https://github.com/CGFixIT/Scrape-n-Email
+```bash
+ruff check src/ tests/
+ruff format --check src/ tests/
+mypy src/scrape_n_email
+pytest tests/ --cov=scrape_n_email --cov-report=term-missing --cov-fail-under=80
+```
+
+Useful narrow checks:
+
+```bash
+pytest tests/unit/test_scrapers.py -q
+pytest tests/integration/test_pipeline.py -q
+```
+
+All tests are intended to run offline. Do not rely on live websites or real SMTP in ordinary validation.
+
+## Docker
+
+Build:
+
+```bash
+docker build -t scrape-n-email .
+```
+
+Run:
+
+```bash
+docker run --rm \
+  -e EMAIL_USER=you@gmail.com \
+  -e EMAIL_PASS=app-password \
+  -v $(pwd)/output:/data \
+  scrape-n-email
+```
+
+The container writes output files under `/data`.
+
+## Agent Setup
+
+Repo-local agent guidance lives here:
+
+- `AGENTS.md` - shared project rules for coding agents
+- `.codex/` - Codex routines, skills, and checklists
+- `commands/` - runnable Codex slash commands
+- `.claude/` and `CLAUDE.md` - Claude Code mirrors
+
+If you are updating agent scaffolding, keep Claude and Codex mirrors aligned and prefer adding only missing pieces over inventing new workflow.
+
+## Known Caveats
+
+- Live scraping can break when RealClearPolitics, Craigslist, or Drudge changes HTML.
+- The right fix is usually a small parser selector update plus an offline test refresh.
+- `RCPlinks.csv` is append-oriented by design and will grow over time.
+- Gmail requires an app password, not the account password.
+- Generated output files are runtime artifacts and should not be committed.
+
+## License
+
+MIT. See [LICENSE.md](LICENSE.md).

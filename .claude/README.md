@@ -19,10 +19,10 @@ prompt to Claude with `$ARGUMENTS` replaced by whatever you type after the comma
 
 | Command | File | Codex equivalent |
 |---|---|---|
-| `/ponytail [task]` | `commands/ponytail.md` | `commands/ponytail.toml` |
-| `/optimize [task]` | `commands/optimize.md` | `commands/optimize.toml` |
+| `/ponytail [task]` | `commands/ponytail.md` | `../commands/ponytail.toml` |
+| `/optimize [task]` | `commands/optimize.md` | `../commands/optimize.toml` |
 
-The `.toml` files in `commands/` are the Codex-format equivalents for use with Codex agents.
+The repo-root `commands/*.toml` files are the Codex-format equivalents for use with Codex agents.
 
 ## Skills vs Commands
 

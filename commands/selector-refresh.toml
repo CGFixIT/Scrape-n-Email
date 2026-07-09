@@ -1,0 +1,2 @@
+description = "Repair a Scrape-n-Email scraper when a source site changes HTML"
+prompt = "Read AGENTS.md and .codex/skills/site-selector-refresh/SKILL.md first. Refresh this Scrape-n-Email scraper for source HTML drift. User context: {{args}}. Keep the diff tight. Prefer selector and fallback updates in the existing parser plus matching offline test updates over broad rewrites. Do not add live-network tests or real SMTP calls."
