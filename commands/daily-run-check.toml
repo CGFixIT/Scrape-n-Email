@@ -1,0 +1,2 @@
+description = "Verify the daily scrape, file-output, and email pipeline offline"
+prompt = "Read AGENTS.md and .codex/skills/daily-run-check/SKILL.md first. Verify this Scrape-n-Email change end to end. User context: {{args}}. Prefer the narrowest offline checks that cover the touched path. Use --skip-email or mocks instead of live SMTP, and do not commit generated outputs."
